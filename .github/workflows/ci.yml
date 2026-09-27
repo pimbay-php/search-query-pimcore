@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [contrib]
+  push:
+    branches: [contrib]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: PHP ${{ matrix.php-version }} + Pimcore ${{ matrix.pimcore-constraint }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - php-version: '8.3'
+            pimcore-constraint: '^11.5'
+          - php-version: '8.3'
+            pimcore-constraint: '^12.0'
+          - php-version: '8.4'
+            pimcore-constraint: '^12.0'
+          - php-version: '8.4'
+            pimcore-constraint: '^2026.0'
+          - php-version: '8.5'
+            pimcore-constraint: '^2026.0'
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: curl, dom, exif, fileinfo, gd, iconv, intl, mbstring, pdo_mysql, simplexml, zip
+
+      - name: Allow pimcore/pimcore's own advisories on the 11.x row
+        if: startsWith(matrix.pimcore-constraint, '^11.')
+        run: composer config --json policy.advisories.ignore '["pimcore/pimcore"]'
+
+      - name: Require Pimcore
+        run: composer require --no-interaction --no-progress --no-scripts "pimcore/pimcore:${{ matrix.pimcore-constraint }}"
+
+      - run: composer install --prefer-dist --no-progress
+
+      - name: Tests
+        run: vendor/bin/phpunit --no-coverage
+
+  coverage-and-mutation:
+    name: Coverage + mutation testing (PHP 8.3 + Pimcore 12.0)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: xdebug
+          extensions: curl, dom, exif, fileinfo, gd, iconv, intl, mbstring, pdo_mysql, simplexml, zip
+
+      - name: Require Pimcore
+        run: composer require --no-interaction --no-progress --no-scripts "pimcore/pimcore:^12.0"
+
+      - run: composer install --prefer-dist --no-progress
+
+      - name: Tests with coverage
+        run: XDEBUG_MODE=coverage vendor/bin/phpunit --coverage-clover=var/reports/coverage/report.xml -d --min-coverage=100
+
+      - name: Mutation testing
+        run: XDEBUG_MODE=coverage vendor/bin/infection --threads=max --min-msi=100 --min-covered-msi=100
+
+  static-analysis:
+    name: Style & static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: curl, dom, exif, fileinfo, gd, iconv, intl, mbstring, pdo_mysql, simplexml, zip
+
+      - run: composer install --prefer-dist --no-progress
+
+      - name: Manifest validation
+        run: composer validate --strict
+
+      - name: Code style check
+        run: composer php:cs
+
+      - name: Static analysis
+        run: composer php:stan
+
+      - name: Dependency advisories
+        run: composer audit
+
+  sync:
+    if: github.event_name == 'push'
+    needs: [test, static-analysis, coverage-and-mutation]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push contrib to Codeberg
+        run: |
+          git remote add codeberg https://oauth2:${{ secrets.CODEBERG_TOKEN }}@codeberg.org/pimbay-php/search-query-pimcore.git
+          git fetch codeberg contrib:refs/remotes/codeberg/contrib || true
+          git push codeberg HEAD:contrib --force

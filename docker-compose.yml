@@ -1,0 +1,55 @@
+x-build-base: &build-base
+  context: .
+  dockerfile: docker/Dockerfile
+
+x-service-base: &service-base
+  working_dir: /app
+  volumes:
+    - .:/app
+    - /app/vendor
+
+services:
+  # ── PHP 8.3 + Pimcore 11 ──
+  php83-pimcore11:
+    <<: *service-base
+    build:
+      <<: *build-base
+      args:
+        PHP_VERSION: '8.3'
+        PIMCORE_CONSTRAINT: '^11.5'
+
+  # ── PHP 8.3 + Pimcore 12 (current calendar release line) ──
+  php83-pimcore12:
+    <<: *service-base
+    build:
+      <<: *build-base
+      args:
+        PHP_VERSION: '8.3'
+        PIMCORE_CONSTRAINT: '^12.0'
+
+  # ── PHP 8.4 + Pimcore 12 ──
+  php84-pimcore12:
+    <<: *service-base
+    build:
+      <<: *build-base
+      args:
+        PHP_VERSION: '8.4'
+        PIMCORE_CONSTRAINT: '^12.0'
+
+  # ── PHP 8.4 + Pimcore 2026 (calendar-versioned line that superseded 12.x) ──
+  php84-pimcore2026:
+    <<: *service-base
+    build:
+      <<: *build-base
+      args:
+        PHP_VERSION: '8.4'
+        PIMCORE_CONSTRAINT: '^2026.0'
+
+  # ── PHP 8.5 + Pimcore 2026 (only line that supports 8.5; 12.x caps at 8.4) ──
+  php85-pimcore2026:
+    <<: *service-base
+    build:
+      <<: *build-base
+      args:
+        PHP_VERSION: '8.5'
+        PIMCORE_CONSTRAINT: '^2026.0'

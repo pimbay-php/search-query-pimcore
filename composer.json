@@ -1,0 +1,93 @@
+{
+  "name": "pimbay/search-query-pimcore",
+  "type": "library",
+  "description": "Pimcore Listing adapter for pimbay/search-query.",
+  "keywords": [
+    "search",
+    "pagination",
+    "pimcore",
+    "listing",
+    "data-object"
+  ],
+  "license": "Unlicense",
+  "authors": [
+    {
+      "name": "Jan Sarmir",
+      "email": "sarmir@pimbay.dev",
+      "homepage": "https://pimbay.dev",
+      "role": "Creator"
+    }
+  ],
+  "homepage": "https://pimbay.dev",
+  "support": {
+    "source": "https://codeberg.org/pimbay-php/search-query-pimcore",
+    "issues": "https://github.com/pimbay-php/search-query-pimcore/issues",
+    "docs": "https://pimbay.dev",
+    "readme": "README.md"
+  },
+  "require": {
+    "php": ">=8.3",
+    "pimcore/pimcore": "^11.5 || ^12.0 || ^2026.0",
+    "pimbay/search-query": "^2.1"
+  },
+  "require-dev": {
+    "friendsofphp/php-cs-fixer": "^3.95",
+    "infection/infection": "^0.34.2",
+    "phpstan/phpstan": "^2.0",
+    "phpunit/phpunit": "^11.5",
+    "robiningelbrecht/phpunit-coverage-tools": "^1.10"
+  },
+  "autoload": {
+    "psr-4": {
+      "PimBay\\SearchQuery\\Pimcore\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "PimBay\\SearchQuery\\Pimcore\\Tests\\": "tests/"
+    }
+  },
+  "config": {
+    "sort-packages": true,
+    "allow-plugins": {
+      "infection/extension-installer": true,
+      "php-http/discovery": true
+    }
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true,
+  "scripts": {
+    "php:cs": [
+      "vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.dist.php --dry-run --diff",
+      "vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.tests.php --dry-run --diff"
+    ],
+    "php:cs:fix": [
+      "vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.dist.php",
+      "vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.tests.php"
+    ],
+    "php:stan": [
+      "vendor/bin/phpstan analyse",
+      "vendor/bin/phpstan analyse -c phpstan.tests.neon.dist"
+    ],
+    "test:83-pimcore11": "docker compose run --rm php83-pimcore11 vendor/bin/phpunit --no-coverage",
+    "test:83-pimcore12": "docker compose run --rm php83-pimcore12 vendor/bin/phpunit --no-coverage",
+    "test:84-pimcore12": "docker compose run --rm php84-pimcore12 vendor/bin/phpunit --no-coverage",
+    "test:84-pimcore2026": "docker compose run --rm php84-pimcore2026 vendor/bin/phpunit --no-coverage",
+    "test:85-pimcore2026": "docker compose run --rm php85-pimcore2026 vendor/bin/phpunit --no-coverage",
+    "test:all": [
+      "@test:83-pimcore11",
+      "@test:83-pimcore12",
+      "@test:84-pimcore12",
+      "@test:84-pimcore2026",
+      "@test:85-pimcore2026"
+    ],
+    "test:coverage": "docker compose run --rm php83-pimcore12 vendor/bin/phpunit --coverage-text --coverage-clover=var/reports/coverage/report.xml -d --min-coverage=100",
+    "test:mutation": "docker compose run --rm php83-pimcore12 vendor/bin/infection --threads=max --min-msi=100 --min-covered-msi=100",
+    "ci": [
+      "@php:cs",
+      "@php:stan",
+      "@test:all",
+      "@test:mutation"
+    ]
+  }
+}
