@@ -5,6 +5,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-29
+
 ### Added
 - `Adapter\PimcoreListingAdapter` — implements `pimbay/search-query`'s `PageAdapter`, `SliceAdapter`, `CountableAdapter`, `HeadableAdapter`, `AllAdapter` and `IdentifiableAdapter` all at once over a Pimcore listing. Accepts any of Pimcore's six concrete listing classes (`DataObject`, `Asset`, `Document`, `Element\Note`, `Element\Tag`, `Version`), not a bare `AbstractListing` — the methods the adapter needs are not declared there.
 - `count()`, `ids()` and `all()` reset the listing's offset and limit before reading, so a window left over from an earlier paginated read cannot silently bound a whole-set read — `loadIdList()` in particular applies both. `head()` does the same with its own limit, and `pageView()` takes its total from `count()`.
