@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PimBay\SearchQuery\Pimcore\Tests\Fixture;
 
+use Pimcore\Model\Dao\AbstractDao;
 use Pimcore\Model\DataObject;
 
 /**
@@ -30,6 +31,31 @@ final class SpyListing extends DataObject\Listing
         private readonly array $idList = [],
     ) {
         $this->log = new CallLog();
+    }
+
+    /**
+     * The processors list replaces the single callback from Pimcore 12.2.
+     */
+    public static function hasQueryBuilderProcessors(): bool
+    {
+        $class = self::locateDaoClass(DataObject\Listing::class);
+
+        return null !== $class && property_exists($class, 'queryBuilderProcessors');
+    }
+
+    /**
+     * Skips `configure()`, which would open a database connection.
+     */
+    public function initDao(?string $key = null, bool $forceDetection = false): void
+    {
+        $class = self::locateDaoClass(DataObject\Listing::class) ?? throw new \LogicException('No DAO class found.');
+        $dao = new $class();
+
+        if (!$dao instanceof AbstractDao) {
+            throw new \LogicException('Not a DAO.');
+        }
+
+        $this->setDao($dao->setModel($this));
     }
 
     public function setOffset(int $offset): static
@@ -73,6 +99,11 @@ final class SpyListing extends DataObject\Listing
 
     public function getTotalCount(): int
     {
+        if ($this->dao instanceof AbstractDao) {
+            $hook = self::hasQueryBuilderProcessors() ? 'queryBuilderProcessors' : 'onCreateQueryBuilderCallback';
+            $this->log->record('daoHook', self::daoProperty($this->dao, $hook));
+        }
+
         return $this->totalCount;
     }
 
@@ -83,5 +114,17 @@ final class SpyListing extends DataObject\Listing
     public function getCount(): int
     {
         throw new \LogicException('getCount() must never be called — use getTotalCount().');
+    }
+
+    /**
+     * The hooks have no public getter.
+     */
+    private static function daoProperty(AbstractDao $dao, string $name): mixed
+    {
+        if (!property_exists($dao, $name)) {
+            return null;
+        }
+
+        return (new \ReflectionProperty($dao, $name))->getValue($dao);
     }
 }

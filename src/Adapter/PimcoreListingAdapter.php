@@ -21,6 +21,7 @@ use PimBay\SearchQuery\Page\PageAdapter;
 use PimBay\SearchQuery\Page\PageChunk;
 use PimBay\SearchQuery\Slice\SliceAdapter;
 use PimBay\SearchQuery\Slice\SliceChunk;
+use Pimcore\Model\AbstractModel;
 use Pimcore\Model\Asset\Listing as AssetListing;
 use Pimcore\Model\DataObject\Listing as DataObjectListing;
 use Pimcore\Model\Document\Listing as DocumentListing;
@@ -121,6 +122,40 @@ final readonly class PimcoreListingAdapter implements PageAdapter, SliceAdapter,
 
     private function cloneListing(): AssetListing|DataObjectListing|DocumentListing|NoteListing|TagListing|VersionListing
     {
-        return clone $this->listing;
+        $clone = clone $this->listing;
+
+        // __clone() drops the DAO and the joins and selects registered on it. Read the property, not getDao(),
+        // which would build a DAO on the caller's listing just to look.
+        $source = (new \ReflectionProperty(AbstractModel::class, 'dao'))->getValue($this->listing);
+
+        if (\is_object($source)) {
+            $this->copyQueryBuilderHook($source, $clone->getDao());
+        }
+
+        return $clone;
+    }
+
+    private function copyQueryBuilderHook(object $from, object $to): void
+    {
+        // Pimcore 12.2+ keeps the hook in a processors list (the callback is a deprecated mirror), earlier versions
+        // in the callback. The Note, Tag and Version DAOs have neither.
+        $property = self::findProperty($from, 'queryBuilderProcessors')
+            ?? self::findProperty($from, 'onCreateQueryBuilderCallback');
+
+        $property?->setValue($to, $property->getValue($from));
+    }
+
+    /**
+     * The hook is protected or private on the DAO, hence reflection.
+     */
+    private static function findProperty(object $object, string $name): ?\ReflectionProperty
+    {
+        for ($class = new \ReflectionClass($object); false !== $class; $class = $class->getParentClass()) {
+            if ($class->hasProperty($name)) {
+                return $class->getProperty($name);
+            }
+        }
+
+        return null;
     }
 }
