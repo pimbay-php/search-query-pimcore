@@ -16,16 +16,13 @@ Nothing in flight.
 ## Known limitations / non-goals (for now)
 
 - No `CursorAdapter` implementation — same reasoning as `search-query-doctrine`.
-- No `tests/Functional/` suite — see `docs/DECISIONS.md` for why.
-- `SqlHelper` is a local copy of `search-query-doctrine`'s, not shared — the two are identical apart from the namespace; see `docs/DECISIONS.md`.
-- A custom `AbstractListing` subclass outside the six concrete listing classes is not accepted — see `docs/DECISIONS.md`.
-- `$column` is interpolated into the SQL fragment, not bound. Callers must pass a literal or an allowlisted value; the README says so too.
 - `getTotalCount()` on `Note`/`Tag`/`Version` listings catches the exception and returns `0`, so a bad `$column` on one of them reads as an empty result rather than an error. Only a bare `count()` is silent: those DAOs' `load()` has no catch, so `pageView()`/`all()`/`head()`/`pageSlice()` surface it normally.
 - `load()` on `DataObject`/`Asset`/`Document` silently drops a row whose object will not hydrate — `getById()` returning `null`, plus an empty `type` column on Asset/Document. `pageView()->totalCount` counts DB rows while the results are hydrated objects, so the two can disagree, and `pageSlice()`'s `hasMore` can read `false` when the dropped row was the lookahead one. Accepted, see `docs/DECISIONS.md`.
 
 ## Implementation notes
 
-- `cloneListing()` is safe because `Pimcore\Model\AbstractModel::__clone()` nulls `$dao`, and `setLimit()`/`setOffset()` call `setData(null)`, so a clone re-queries instead of returning the original's cached rows. Verified against `pimcore/pimcore` v11.5.14.1.
+- `cloneListing()` is safe because `AbstractModel::__clone()` nulls `$dao` and `setLimit()`/`setOffset()` call `setData(null)`, so a clone re-queries instead of returning cached rows. Verified against `pimcore/pimcore` v11.5.14.1.
+- It then copies the DAO's `onCreateQueryBuilder()` hook onto the clone by reflection: the private `queryBuilderProcessors` list on Pimcore 12.2+, `onCreateQueryBuilderCallback` before. Chosen by property presence, not version, so dev branches and replaced packages work.
 
 ## Ideas / future plans
 
