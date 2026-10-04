@@ -8,6 +8,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 ### Added
 - `SqlHelper::contains()`, `startsWith()` and `endsWith()` build the `%…%`, `…%` and `%…` `LIKE` pattern for a value with its own `%`, `_` and escape character escaped.
 
+### Fixed
+- `Adapter\PimcoreListingAdapter` keeps the joins and selects added through `onCreateQueryBuilder()`; reads ran on a clone without them, so a query on a joined column failed with `Unknown column`.
+
 ## [1.0.0] - 2026-09-29
 
 ### Added

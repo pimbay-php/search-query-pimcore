@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use PimBay\SearchQuery\Pimcore\Adapter\PimcoreListingAdapter;
 use PimBay\SearchQuery\Pimcore\Tests\Fixture\SpyListing;
+use PimBay\SearchQuery\Pimcore\Tests\Fixture\SpyTagListing;
 use Pimcore\Model\DataObject;
 
 final class PimcoreListingAdapterTest extends TestCase
@@ -148,6 +149,86 @@ final class PimcoreListingAdapterTest extends TestCase
         self::assertSame([5, null], $listing->log->argumentsOf('setLimit'));
         self::assertSame(0, $listing->getOffset());
         self::assertNull($listing->getLimit());
+    }
+
+    #[Test]
+    public function theCloneKeepsTheCallbackRegisteredThroughOnCreateQueryBuilder(): void
+    {
+        $callback = static function (): void {
+        };
+        $listing = new SpyListing(totalCount: 5);
+        $listing->onCreateQueryBuilder($callback);
+
+        (new PimcoreListingAdapter($listing))->count();
+
+        self::assertSame([self::hook($callback)], $listing->log->argumentsOf('daoHook'));
+    }
+
+    #[Test]
+    public function theCloneKeepsEveryQueryBuilderProcessor(): void
+    {
+        if (!SpyListing::hasQueryBuilderProcessors()) {
+            self::markTestSkipped('Query builder processors exist from Pimcore 12.2.');
+        }
+
+        $first = static function (): void {
+        };
+        $second = static function (): void {
+        };
+        $listing = new SpyListing(totalCount: 5);
+        $listing->addQueryBuilderProcessor($first);
+        $listing->addQueryBuilderProcessor($second);
+
+        (new PimcoreListingAdapter($listing))->count();
+
+        self::assertSame([[$first, $second]], $listing->log->argumentsOf('daoHook'));
+    }
+
+    #[Test]
+    public function eachCallCopiesTheHookAsItIsAtThatMoment(): void
+    {
+        $callback = static function (): void {
+        };
+        $listing = new SpyListing(totalCount: 5);
+        $listing->onCreateQueryBuilder($callback);
+        $adapter = new PimcoreListingAdapter($listing);
+
+        $adapter->count();
+        $listing->onCreateQueryBuilder(null);
+        $adapter->count();
+
+        self::assertSame([self::hook($callback), self::hook()], $listing->log->argumentsOf('daoHook'));
+    }
+
+    #[Test]
+    public function aListingWithoutADaoYetIsClonedWithoutCreatingOne(): void
+    {
+        $listing = new SpyListing(totalCount: 5);
+
+        (new PimcoreListingAdapter($listing))->count();
+
+        self::assertSame([], $listing->log->argumentsOf('daoCallback'));
+    }
+
+    #[Test]
+    public function aListingWhoseDaoHasNoQueryBuilderHooksStillClones(): void
+    {
+        $listing = new SpyTagListing();
+        $listing->getDao();
+
+        self::assertSame(7, (new PimcoreListingAdapter($listing))->count());
+    }
+
+    /**
+     * What the DAO holds after `onCreateQueryBuilder()`: a list of processors from Pimcore 12.2, one callback before.
+     */
+    private static function hook(?callable $callback = null): mixed
+    {
+        if (SpyListing::hasQueryBuilderProcessors()) {
+            return null === $callback ? [] : [$callback];
+        }
+
+        return $callback;
     }
 
     /**
